@@ -1,5 +1,104 @@
+### CHARGEMENT DES PACKAGES ###
+
+
 # Lecture CSV
 using CSV
 
 # Plot
 using Seaborn
+
+
+
+
+
+### PARAMETRES DE SIMULATION ET CHARGEMENT DES DONNEES ###
+
+# Parametres de simulation
+dk = 1. # en h
+horizon = 24.  # en h
+nk=length(dk:dk:horizon) # nombre de pas de temps sur l'horizon
+
+# Data
+data_tuto = CSV.read("data_tuto.csv")
+
+
+
+
+
+
+
+### CREATION DES STRUCTURES ###
+
+# PV
+struct Source
+    pkWc # (kWc) puissance crete
+    power # (kW) puissance
+end
+
+# Load
+struct Load
+    pMax # (kW) puissance max
+    power # (kW) puissance
+end
+
+# Batterie
+struct Batterie
+    # Parametres
+    Erated # (kWh) capacité
+    pMaxCh # (kW) puissance max de charge
+    pMaxDch # (kW) puissance max de décharge
+    ηCh # (0-1) rendement de charge
+    ηDch # (0-1) rendement de décharge
+    socMin # (0-1) SOC min
+    socMax # (0-1) SOC max
+    socIni # (0-1) SOC initial
+    # Variables
+    power # (kW) puissance
+    soc # (0-1) SOC
+end
+
+
+
+
+
+
+
+
+### INITIALISATION ###
+
+
+# PV
+pv = Source(60,60. * data_tuto.data_pv)
+
+# Load
+ld = Load(30., 30. * data_tuto.data_ld_E)
+
+# Batterie
+batt = Batterie(200., 300., 300., 0.8, 0.8, 0.2, 0.8, 0.5, zeros(nk,1), zeros(nk+1,1))
+batt.soc[1] = batt.socIni
+
+
+
+
+
+
+
+### SIMULATEUR ###
+
+
+# Calcul de la trajectoire de controle sur l'horizon 
+controlPowerBatt = controlMILP(batt, grid, ld, pv, dk, nk);
+
+# Simulation du micro-réseau sur l'horizon
+for k=1:nk
+    
+    # Limitation en puissance
+    batt.power[k] = max(min(0,controlPowerBatt[k]),-batt.pMaxCh) + min(max(0,controlPowerBatt[k]),batt.pMaxDch);
+    
+    # Dynamique de la batterie
+    batt.soc[k+1] = batt.soc[k] - ( min(0,batt.power[k]) * batt.ηCh + max(0,batt.power[k]) / batt.ηDch ) * dk / batt.Erated;
+    
+    # Calcul de la puissance du réseau
+    grid.power[k] = max(0,ld.power[k] - pv.power[k] - batt.power[k]);
+    
+end
