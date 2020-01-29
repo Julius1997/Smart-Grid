@@ -69,6 +69,9 @@ ld_elec = Load(30., 30. * data_tuto.data_ld_E)
 ## Load_therm
 #ld_therm = Load(30., 30. * data_tuto.data_ld_E)
 
+#Fake Load
+Fake_load = Load(100., zeros(nk,1))
+
 # Batterie_elec
 batt_elec = Batterie(200., 300., 300., 0.8, 0.8, 0.2, 0.8, 0.5, zeros(nk,1), zeros(nk+1,1))
 batt_elec.soc[1] = batt_elec.socIni
@@ -99,6 +102,6 @@ for k=1:nk
     #batt_therm.soc[k+1] = batt_therm.soc[k] - (min(0,batt.batt_therm[k]) * batt.ηCh + max(0,batt_therm.power[k]) / batt_therm.ηDch) * dk / batt_therm.Erated;
 
     # Calcul de la puissance "a jeter"
-     = max(0 , ld_elec.power[k] - pv.power[k] - eol.power[k] - batt_elec.power[k] );
+    Fake_load.power[k] = max(0 , ld_elec.power[k] - pv.power[k] - eol.power[k] - batt_elec.power[k] );
     
 end
